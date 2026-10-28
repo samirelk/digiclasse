@@ -24,7 +24,11 @@ import {
   Key,
   User,
   LogIn,
-  Sparkles
+  Sparkles,
+  Database,
+  Code2,
+  Copy,
+  FileCode
 } from 'lucide-react';
 
 interface AdminDashboardModalProps {
@@ -55,7 +59,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [authError, setAuthError] = useState('');
 
   // Active Tab - default to orders for the platform owner
-  const [activeTab, setActiveTab] = useState<'orders' | 'schools' | 'stats'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'schools' | 'stats' | 'php_package'>('orders');
+  const [selectedPhpFile, setSelectedPhpFile] = useState<'sql' | 'config' | 'whatsapp' | 'readme'>('sql');
+  const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   // Search & Filters
   const [schoolsSearch, setSchoolsSearch] = useState('');
@@ -348,6 +354,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                   <span>إحصائيات المنصة</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('php_package')}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'php_package'
+                      ? 'bg-emerald-800 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Database className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>حزمة PHP & MySQL (الكود المصدري)</span>
                 </button>
               </div>
 
@@ -812,6 +829,345 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     </div>
                   </div>
 
+                </div>
+              )}
+
+              {/* TAB 4: PHP & MYSQL SOURCE CODE PACKAGE FOR CLIENT DELIVERY */}
+              {activeTab === 'php_package' && (
+                <div className="space-y-6">
+                  {/* Top Intro Banner */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span className="text-xs text-emerald-400 font-bold">
+                          حزمة الكود المصدري المستقل (Self-Host) - للتسليم والتركيب
+                        </span>
+                      </div>
+                      <h4 className="text-xl sm:text-2xl font-black">
+                        حزمة PHP 8.2 & MySQL الخاصة بالمنظومة المدرسية
+                      </h4>
+                      <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                        هذه الحزمة البرمجية الكاملة جاهزة للتسليم للمؤسسات التعليمية التي تقتني باقة الـ 1,200 درهم للتثبيت الذاتي على سيرفراتها الخاصة، أو لنقل وتثبيت المنظومة على استضافات cPanel و VPS مع قاعدة بيانات MySQL وربط WhatsApp Cloud API.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch md:self-auto shrink-0">
+                      <button
+                        onClick={() => {
+                          const blob = new Blob([
+                            `-- DigiClasse School System MySQL Schema\n` +
+                            `CREATE DATABASE IF NOT EXISTS digiclasse_school_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n` +
+                            `USE digiclasse_school_db;\n\n` +
+                            `CREATE TABLE settings (id INT AUTO_INCREMENT PRIMARY KEY, school_name VARCHAR(255), whatsapp_token TEXT, whatsapp_phone_number_id VARCHAR(100));\n` +
+                            `CREATE TABLE classrooms (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), level VARCHAR(50), room_number VARCHAR(50), capacity INT DEFAULT 36);\n` +
+                            `CREATE TABLE students (id INT AUTO_INCREMENT PRIMARY KEY, massar_code VARCHAR(20) UNIQUE, full_name VARCHAR(150), classroom_id INT, guardian_phone VARCHAR(30), guardian_whatsapp VARCHAR(30), seat_row INT, seat_col INT);\n` +
+                            `CREATE TABLE attendances (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, date DATE, type ENUM('غياب_كامل', 'تأخر_بالدقائق'), delay_minutes INT DEFAULT 0, is_justified BOOLEAN DEFAULT FALSE, justification_reason TEXT);\n` +
+                            `CREATE TABLE whatsapp_logs (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, recipient_phone VARCHAR(30), message_text TEXT, status VARCHAR(50) DEFAULT 'sent', sent_at DATETIME DEFAULT CURRENT_TIMESTAMP);\n`
+                          ], { type: 'text/sql' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'database.sql';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>تحميل مخطط MySQL (database.sql)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Package Files Selector & Actions */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#FBFBFA] border border-slate-200">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto">
+                      {[
+                        { id: 'sql', label: 'قاعدة البيانات (database.sql)', icon: Database },
+                        { id: 'config', label: 'الاتصال والإعدادات (config.php)', icon: Code2 },
+                        { id: 'whatsapp', label: 'إرسال واتساب (whatsapp_api.php)', icon: MessageSquare },
+                        { id: 'readme', label: 'دليل التثبيت (README.md)', icon: FileCode },
+                      ].map((tab) => {
+                        const Icon = tab.icon;
+                        const isSelected = selectedPhpFile === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => setSelectedPhpFile(tab.id as any)}
+                            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                              isSelected
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                            }`}
+                          >
+                            <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-400' : 'text-slate-500'}`} />
+                            <span>{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                      <button
+                        onClick={() => {
+                          let textToCopy = '';
+                          let fname = '';
+                          if (selectedPhpFile === 'sql') {
+                            fname = 'database.sql';
+                            textToCopy = `-- DigiClasse School Attendance & WhatsApp System\n-- MySQL 5.7+ / MariaDB 10.3+\nCREATE DATABASE IF NOT EXISTS \`digiclasse_school_db\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nUSE \`digiclasse_school_db\`;\n\nCREATE TABLE \`settings\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`school_name\` VARCHAR(255) NOT NULL,\n  \`whatsapp_token\` TEXT,\n  \`whatsapp_phone_number_id\` VARCHAR(100)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`classrooms\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`name\` VARCHAR(100) NOT NULL,\n  \`level\` ENUM('ابتدائي', 'إعدادي', 'تأهيلي', 'مشترك') DEFAULT 'إعدادي',\n  \`room_number\` VARCHAR(50) DEFAULT 'القاعة 1',\n  \`capacity\` INT DEFAULT 36\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`students\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`massar_code\` VARCHAR(20) UNIQUE NOT NULL,\n  \`full_name\` VARCHAR(150) NOT NULL,\n  \`classroom_id\` INT NOT NULL,\n  \`guardian_phone\` VARCHAR(30) NOT NULL,\n  \`guardian_whatsapp\` VARCHAR(30) NOT NULL,\n  \`seat_row\` INT DEFAULT 1,\n  \`seat_col\` INT DEFAULT 1\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`attendances\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`student_id\` INT NOT NULL,\n  \`date\` DATE NOT NULL,\n  \`type\` ENUM('غياب_كامل', 'تأخر_بالدقائق') DEFAULT 'غياب_كامل',\n  \`delay_minutes\` INT DEFAULT 0,\n  \`is_justified\` BOOLEAN DEFAULT FALSE,\n  \`justification_reason\` TEXT\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`whatsapp_logs\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`student_id\` INT NOT NULL,\n  \`recipient_phone\` VARCHAR(30) NOT NULL,\n  \`message_text\` TEXT NOT NULL,\n  \`status\` VARCHAR(50) DEFAULT 'sent',\n  \`sent_at\` DATETIME DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+                          } else if (selectedPhpFile === 'config') {
+                            fname = 'config.php';
+                            textToCopy = `<?php\n// إعدادات الاتصال بقاعدة بيانات MySQL ومنظومة مدرستي الذكية\ndefine('DB_HOST', 'localhost');\ndefine('DB_NAME', 'digiclasse_school_db');\ndefine('DB_USER', 'root');\ndefine('DB_PASS', '');\ndefine('DB_CHARSET', 'utf8mb4');\n\n// WhatsApp Cloud API (Meta Developers)\ndefine('WHATSAPP_PHONE_NUMBER_ID', 'YOUR_PHONE_NUMBER_ID');\ndefine('WHATSAPP_ACCESS_TOKEN', 'YOUR_PERMANENT_ACCESS_TOKEN');\ndefine('WHATSAPP_API_URL', 'https://graph.facebook.com/v19.0/' . WHATSAPP_PHONE_NUMBER_ID . '/messages');\n\nfunction getDbConnection() {\n    static $pdo = null;\n    if ($pdo === null) {\n        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;\n        $pdo = new PDO($dsn, DB_USER, DB_PASS, [\n            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,\n            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC\n        ]);\n    }\n    return $pdo;\n}`;
+                          } else if (selectedPhpFile === 'whatsapp') {
+                            fname = 'whatsapp_api.php';
+                            textToCopy = `<?php\nrequire_once __DIR__ . '/config.php';\n\nfunction sendAbsenceWhatsAppNotification($phone, $studentName, $type, $delayMinutes = 0) {\n    $msg = "السلام عليكم، إشعار من إدارة المؤسسة: التلميذ(ة) " . $studentName . " سجلت له حالة " . ($type === 'تأخر_بالدقائق' ? "تأخر بـ " . $delayMinutes . " دقيقة" : "غياب غير مبرر") . " بتاريخ اليوم.";\n    $payload = [\n        'messaging_product' => 'whatsapp',\n        'to' => $phone,\n        'type' => 'text',\n        'text' => ['body' => $msg]\n    ];\n    $ch = curl_init(WHATSAPP_API_URL);\n    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WHATSAPP_ACCESS_TOKEN, 'Content-Type: application/json']);\n    curl_setopt($ch, CURLOPT_POST, true);\n    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));\n    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n    $res = curl_exec($ch);\n    curl_close($ch);\n    return json_decode($res, true);\n}`;
+                          } else {
+                            fname = 'README.md';
+                            textToCopy = `# دليل تثبيت منظومة مدرستي الذكية (PHP 8.2 & MySQL)\n1. قم باستيراد ملف database.sql عبر phpMyAdmin في استضافتك.\n2. عدل بيانات الاتصال في config.php (اسم السيرفر، اسم القاعدة، اسم المستخدم، كلمة المرور).\n3. أضف مفتاح WhatsApp Cloud API المرسل في إعدادات config.php.\n4. افتح موقع المنظومة واستمتع برصد المقاعد وإرسال الإشعارات.`;
+                          }
+
+                          navigator.clipboard.writeText(textToCopy);
+                          setCopiedFile(fname);
+                          setTimeout(() => setCopiedFile(null), 2500);
+                        }}
+                        className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        {copiedFile ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-600" />
+                            <span className="text-emerald-700 font-bold">تم نسخ الكود!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 text-slate-500" />
+                            <span>نسخ الكود بالكامل</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          let textToDownload = '';
+                          let fname = '';
+                          let mime = 'text/plain';
+                          if (selectedPhpFile === 'sql') {
+                            fname = 'database.sql';
+                            mime = 'text/sql';
+                            textToDownload = `-- DigiClasse School Attendance & WhatsApp System Schema\nCREATE DATABASE IF NOT EXISTS \`digiclasse_school_db\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nUSE \`digiclasse_school_db\`;\n\nCREATE TABLE \`settings\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`school_name\` VARCHAR(255) NOT NULL,\n  \`whatsapp_token\` TEXT,\n  \`whatsapp_phone_number_id\` VARCHAR(100)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`classrooms\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`name\` VARCHAR(100) NOT NULL,\n  \`level\` ENUM('ابتدائي', 'إعدادي', 'تأهيلي', 'مشترك') DEFAULT 'إعدادي',\n  \`room_number\` VARCHAR(50) DEFAULT 'القاعة 1',\n  \`capacity\` INT DEFAULT 36\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`students\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`massar_code\` VARCHAR(20) UNIQUE NOT NULL,\n  \`full_name\` VARCHAR(150) NOT NULL,\n  \`classroom_id\` INT NOT NULL,\n  \`guardian_phone\` VARCHAR(30) NOT NULL,\n  \`guardian_whatsapp\` VARCHAR(30) NOT NULL,\n  \`seat_row\` INT DEFAULT 1,\n  \`seat_col\` INT DEFAULT 1\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`attendances\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`student_id\` INT NOT NULL,\n  \`date\` DATE NOT NULL,\n  \`type\` ENUM('غياب_كامل', 'تأخر_بالدقائق') DEFAULT 'غياب_كامل',\n  \`delay_minutes\` INT DEFAULT 0,\n  \`is_justified\` BOOLEAN DEFAULT FALSE,\n  \`justification_reason\` TEXT\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\nCREATE TABLE \`whatsapp_logs\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`student_id\` INT NOT NULL,\n  \`recipient_phone\` VARCHAR(30) NOT NULL,\n  \`message_text\` TEXT NOT NULL,\n  \`status\` VARCHAR(50) DEFAULT 'sent',\n  \`sent_at\` DATETIME DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+                          } else if (selectedPhpFile === 'config') {
+                            fname = 'config.php';
+                            mime = 'application/x-httpd-php';
+                            textToDownload = `<?php\ndefine('DB_HOST', 'localhost');\ndefine('DB_NAME', 'digiclasse_school_db');\ndefine('DB_USER', 'root');\ndefine('DB_PASS', '');\ndefine('DB_CHARSET', 'utf8mb4');\n\ndefine('WHATSAPP_PHONE_NUMBER_ID', 'YOUR_PHONE_NUMBER_ID');\ndefine('WHATSAPP_ACCESS_TOKEN', 'YOUR_PERMANENT_ACCESS_TOKEN');\ndefine('WHATSAPP_API_URL', 'https://graph.facebook.com/v19.0/' . WHATSAPP_PHONE_NUMBER_ID . '/messages');\n\nfunction getDbConnection() {\n    static $pdo = null;\n    if ($pdo === null) {\n        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;\n        $pdo = new PDO($dsn, DB_USER, DB_PASS, [\n            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,\n            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC\n        ]);\n    }\n    return $pdo;\n}`;
+                          } else if (selectedPhpFile === 'whatsapp') {
+                            fname = 'whatsapp_api.php';
+                            mime = 'application/x-httpd-php';
+                            textToDownload = `<?php\nrequire_once __DIR__ . '/config.php';\n\nfunction sendAbsenceWhatsAppNotification($phone, $studentName, $type, $delayMinutes = 0) {\n    $msg = "السلام عليكم، إشعار من إدارة المؤسسة: التلميذ(ة) " . $studentName . " سجلت له حالة " . ($type === 'تأخر_بالدقائق' ? "تأخر بـ " . $delayMinutes . " دقيقة" : "غياب غير مبرر") . " بتاريخ اليوم.";\n    $payload = [\n        'messaging_product' => 'whatsapp',\n        'to' => $phone,\n        'type' => 'text',\n        'text' => ['body' => $msg]\n    ];\n    $ch = curl_init(WHATSAPP_API_URL);\n    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . WHATSAPP_ACCESS_TOKEN, 'Content-Type: application/json']);\n    curl_setopt($ch, CURLOPT_POST, true);\n    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));\n    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n    $res = curl_exec($ch);\n    curl_close($ch);\n    return json_decode($res, true);\n}`;
+                          } else {
+                            fname = 'README.md';
+                            mime = 'text/markdown';
+                            textToDownload = `# دليل تثبيت منظومة مدرستي الذكية (PHP 8.2 & MySQL)\n1. استيراد database.sql في phpMyAdmin.\n2. إعداد الاتصال في config.php.\n3. ربط WhatsApp Cloud API.\n4. المنظومة جاهزة للعمل.`;
+                          }
+
+                          const blob = new Blob([textToDownload], { type: mime });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = fname;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>تحميل الملف</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Code Viewer Panel */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 overflow-hidden shadow-lg dir-ltr text-left">
+                    <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
+                        <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
+                        <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+                        <span className="ml-2 text-slate-200 font-bold">
+                          {selectedPhpFile === 'sql' && 'database.sql - MySQL 5.7/8.0 Schema'}
+                          {selectedPhpFile === 'config' && 'config.php - Database & WhatsApp Config'}
+                          {selectedPhpFile === 'whatsapp' && 'whatsapp_api.php - Meta WhatsApp Cloud API Sender'}
+                          {selectedPhpFile === 'readme' && 'README.md - Requirements & Deployment Guide'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                        {selectedPhpFile === 'sql' ? 'SQL / MySQL' : selectedPhpFile === 'readme' ? 'Markdown' : 'PHP 8.2+'}
+                      </span>
+                    </div>
+
+                    <div className="p-4 overflow-x-auto max-h-96 text-xs font-mono leading-relaxed text-slate-300">
+                      {selectedPhpFile === 'sql' && (
+                        <pre className="text-emerald-300 whitespace-pre">
+{`-- ========================================================
+-- منظومة مدرستي الذكية - DigiClasse
+-- مخطط قاعدة بيانات MySQL (جداول المقاعد، الغياب، وواتساب)
+-- ========================================================
+
+CREATE DATABASE IF NOT EXISTS \`digiclasse_school_db\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE \`digiclasse_school_db\`;
+
+-- 1. جدول إعدادات المؤسسة و WhatsApp Cloud API
+CREATE TABLE IF NOT EXISTS \`settings\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`school_name\` VARCHAR(255) NOT NULL,
+  \`whatsapp_token\` TEXT DEFAULT NULL,
+  \`whatsapp_phone_number_id\` VARCHAR(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. جدول الأقسام والمستويات وتوزيع المقاعد
+CREATE TABLE IF NOT EXISTS \`classrooms\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`name\` VARCHAR(100) NOT NULL,
+  \`level\` ENUM('ابتدائي', 'إعدادي', 'تأهيلي', 'مشترك') NOT NULL,
+  \`room_number\` VARCHAR(50) DEFAULT 'القاعة 1',
+  \`capacity\` INT DEFAULT 36,
+  \`grid_rows\` INT DEFAULT 6,
+  \`grid_cols\` INT DEFAULT 6
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. جدول التلاميذ ومقاعدهم وأرقام هواتف الأولياء
+CREATE TABLE IF NOT EXISTS \`students\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`massar_code\` VARCHAR(20) NOT NULL UNIQUE,
+  \`full_name\` VARCHAR(150) NOT NULL,
+  \`classroom_id\` INT NOT NULL,
+  \`guardian_phone\` VARCHAR(30) NOT NULL,
+  \`guardian_whatsapp\` VARCHAR(30) NOT NULL,
+  \`seat_row\` INT DEFAULT 1,
+  \`seat_col\` INT DEFAULT 1,
+  FOREIGN KEY (\`classroom_id\`) REFERENCES \`classrooms\`(\`id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. جدول تسجيل الغياب والتأخر بالدقائق
+CREATE TABLE IF NOT EXISTS \`attendances\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`student_id\` INT NOT NULL,
+  \`date\` DATE NOT NULL,
+  \`type\` ENUM('غياب_كامل', 'تأخر_بالدقائق') NOT NULL,
+  \`delay_minutes\` INT DEFAULT 0,
+  \`is_justified\` BOOLEAN DEFAULT FALSE,
+  \`justification_reason\` TEXT DEFAULT NULL,
+  FOREIGN KEY (\`student_id\`) REFERENCES \`students\`(\`id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. جدول إشعارات واتساب السحابية
+CREATE TABLE IF NOT EXISTS \`whatsapp_logs\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`student_id\` INT NOT NULL,
+  \`recipient_phone\` VARCHAR(30) NOT NULL,
+  \`message_text\` TEXT NOT NULL,
+  \`status\` VARCHAR(50) DEFAULT 'sent',
+  \`sent_at\` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`}
+                        </pre>
+                      )}
+
+                      {selectedPhpFile === 'config' && (
+                        <pre className="text-teal-300 whitespace-pre">
+{`<?php
+/**
+ * منظومة مدرستي الذكية - ملف الاتصال بقاعدة البيانات MySQL
+ */
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'digiclasse_school_db');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_CHARSET', 'utf8mb4');
+
+define('WHATSAPP_PHONE_NUMBER_ID', 'YOUR_PHONE_NUMBER_ID');
+define('WHATSAPP_ACCESS_TOKEN', 'YOUR_PERMANENT_ACCESS_TOKEN');
+define('WHATSAPP_API_URL', 'https://graph.facebook.com/v19.0/' . WHATSAPP_PHONE_NUMBER_ID . '/messages');
+
+function getDbConnection() {
+    static $pdo = null;
+    if ($pdo === null) {
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ];
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+    }
+    return $pdo;
+}`}
+                        </pre>
+                      )}
+
+                      {selectedPhpFile === 'whatsapp' && (
+                        <pre className="text-emerald-300 whitespace-pre">
+{`<?php
+/**
+ * وحدة إرسال إشعارات واتساب السحابية عبر WhatsApp Cloud API (cURL)
+ */
+
+require_once __DIR__ . '/config.php';
+
+function sendAbsenceWhatsAppNotification($phone, $studentName, $type, $delayMinutes = 0) {
+    // تنظيف رقم الهاتف وإضافة رمز المغرب الدولي (212)
+    $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+    if (str_starts_with($cleanPhone, '0')) {
+        $cleanPhone = '212' . substr($cleanPhone, 1);
+    }
+
+    $msg = "السلام عليكم ورحمة الله،\\nإشعار من إدارة المؤسسة:\\nالتلميذ(ة): *" . $studentName . "*\\n";
+    if ($type === 'تأخر_بالدقائق') {
+        $msg .= "سُجل عليه تأخر بـ: *" . $delayMinutes . " دقيقة*\\n";
+    } else {
+        $msg .= "سُجلت عليه حالة: *غياب غير مبرر*\\n";
+    }
+    $msg .= "تاريخ الحصة: " . date('Y-m-d H:i');
+
+    $payload = [
+        'messaging_product' => 'whatsapp',
+        'to' => $cleanPhone,
+        'type' => 'text',
+        'text' => ['body' => $msg]
+    ];
+
+    $ch = curl_init(WHATSAPP_API_URL);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . WHATSAPP_ACCESS_TOKEN,
+        'Content-Type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    return json_decode($response, true);
+}`}
+                        </pre>
+                      )}
+
+                      {selectedPhpFile === 'readme' && (
+                        <pre className="text-amber-200 whitespace-pre">
+{`# خطوات التثبيت السريع على استضافة cPanel / Apache / Localhost
+
+1. إنشاء قاعدة بيانات جديدة عبر cPanel MySQL Database Wizard.
+2. الدخول إلى phpMyAdmin واستيراد ملف database.sql.
+3. فتح ملف config.php وتحديث معلومات الاتصال:
+   - DB_HOST (غالباً localhost)
+   - DB_NAME (اسم قاعدة البيانات التي أنشأتها)
+   - DB_USER & DB_PASS (اسم المستخدم وكلمة المرور)
+4. إدخال مفتاح WhatsApp Cloud API المرسل في باقة الشراء.
+5. فتح الرابط في المتصفح، والدخول بحساب المدير:
+   - اسم المستخدم: admin
+   - كلمة المرور: admin123`}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
