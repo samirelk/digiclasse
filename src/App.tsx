@@ -17,13 +17,14 @@ import {
   INITIAL_PURCHASE_ORDERS,
   INITIAL_DEMO_STUDENTS,
 } from './data/initialData';
-import { PartnerSchool, PurchaseOrder, OrderStatus } from './types';
+import { PartnerSchool, PurchaseOrder, OrderStatus, PricingPlan } from './types';
 import { MessageSquare, Sparkles, Shield, ArrowLeft } from 'lucide-react';
 
 export default function App() {
   // Local storage keys
   const SCHOOLS_STORAGE_KEY = 'ecole_smart_partner_schools_v4';
   const ORDERS_STORAGE_KEY = 'ecole_smart_purchase_orders_v3';
+  const PRICING_STORAGE_KEY = 'ecole_smart_pricing_plans_v2';
 
   // State: Partner Schools
   const [partnerSchools, setPartnerSchools] = useState<PartnerSchool[]>(() => {
@@ -47,6 +48,17 @@ export default function App() {
     return INITIAL_PURCHASE_ORDERS;
   });
 
+  // State: Pricing Plans
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>(() => {
+    try {
+      const saved = localStorage.getItem(PRICING_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading saved pricing plans:', e);
+    }
+    return INITIAL_PRICING_PLANS;
+  });
+
   // Persist to local storage
   useEffect(() => {
     try {
@@ -63,6 +75,14 @@ export default function App() {
       console.error('Failed to save orders:', e);
     }
   }, [purchaseOrders]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricingPlans));
+    } catch (e) {
+      console.error('Failed to save pricing plans:', e);
+    }
+  }, [pricingPlans]);
 
   // Modal visibility states
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -122,6 +142,17 @@ export default function App() {
     setPartnerSchools((prev) => prev.filter((sch) => sch.id !== schoolId));
   };
 
+  // Handlers for Pricing Plans
+  const handleUpdatePricingPlan = (updatedPlan: PricingPlan) => {
+    setPricingPlans((prev) =>
+      prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
+    );
+  };
+
+  const handleResetPricingPlans = () => {
+    setPricingPlans(INITIAL_PRICING_PLANS);
+  };
+
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-[#1E293B] flex flex-col font-sans selection:bg-emerald-100 selection:text-emerald-900">
       
@@ -158,7 +189,7 @@ export default function App() {
 
         {/* 6. Pricing Packages */}
         <PricingSection
-          plans={INITIAL_PRICING_PLANS}
+          plans={pricingPlans}
           onSelectPlan={(planId) => handleOpenOrder(planId)}
         />
 
@@ -204,6 +235,7 @@ export default function App() {
       <Footer
         onOpenOrder={() => handleOpenOrder('hosting_domain')}
         onOpenDemo={() => setIsDemoModalOpen(true)}
+        onOpenAdmin={() => setIsAdminModalOpen(true)}
       />
 
       {/* Direct WhatsApp Quick Chat Widget for Sales & Support */}
@@ -232,6 +264,7 @@ export default function App() {
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
         selectedPackageId={selectedPackageForOrder}
+        plans={pricingPlans}
         onSubmitOrder={handleSubmitOrder}
       />
 
@@ -252,10 +285,13 @@ export default function App() {
         onClose={() => setIsAdminModalOpen(false)}
         schools={partnerSchools}
         orders={purchaseOrders}
+        pricingPlans={pricingPlans}
         onAddSchool={handleAddSchool}
         onUpdateSchool={handleUpdateSchool}
         onDeleteSchool={handleDeleteSchool}
         onUpdateOrderStatus={handleUpdateOrderStatus}
+        onUpdatePricingPlan={handleUpdatePricingPlan}
+        onResetPricingPlans={handleResetPricingPlans}
       />
 
       {/* MODAL 4: Branded School Portal Preview */}

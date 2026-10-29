@@ -4,9 +4,10 @@ import { School, MessageSquare, Phone, Mail, MapPin, Shield, Heart } from 'lucid
 interface FooterProps {
   onOpenOrder: () => void;
   onOpenDemo: () => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenOrder, onOpenDemo }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenOrder, onOpenDemo, onOpenAdmin }) => {
   return (
     <footer className="bg-slate-900 text-slate-400 text-xs border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
@@ -153,6 +154,19 @@ export const Footer: React.FC<FooterProps> = ({ onOpenOrder, onOpenDemo }) => {
             <span className="hover:text-slate-400 cursor-pointer">سياسة الخصوصية وسرية المعطيات</span>
             <span aria-hidden="true">·</span>
             <span className="hover:text-slate-400 cursor-pointer">شروط الخدمة والاتفاقيات المؤسساتية</span>
+            {onOpenAdmin && (
+              <>
+                <span aria-hidden="true">·</span>
+                <button
+                  onClick={onOpenAdmin}
+                  className="text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="مدخل إدارة المنصة"
+                >
+                  <Shield className="w-3 h-3" />
+                  <span>لوحة الإدارة</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

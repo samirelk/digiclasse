@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PartnerSchool, PurchaseOrder, OrderStatus, EducationLevel, SchoolStatus } from '../types';
+import { PartnerSchool, PurchaseOrder, OrderStatus, EducationLevel, SchoolStatus, PricingPlan } from '../types';
 import { 
   X, 
   ShieldCheck, 
@@ -28,7 +28,12 @@ import {
   Database,
   Code2,
   Copy,
-  FileCode
+  FileCode,
+  Tag,
+  Coins,
+  RotateCcw,
+  Save,
+  HelpCircle
 } from 'lucide-react';
 
 interface AdminDashboardModalProps {
@@ -36,10 +41,13 @@ interface AdminDashboardModalProps {
   onClose: () => void;
   schools: PartnerSchool[];
   orders: PurchaseOrder[];
+  pricingPlans: PricingPlan[];
   onAddSchool: (school: Omit<PartnerSchool, 'id'>) => void;
   onUpdateSchool: (school: PartnerSchool) => void;
   onDeleteSchool: (schoolId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  onUpdatePricingPlan: (plan: PricingPlan) => void;
+  onResetPricingPlans: () => void;
 }
 
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
@@ -47,10 +55,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   onClose,
   schools,
   orders,
+  pricingPlans,
   onAddSchool,
   onUpdateSchool,
   onDeleteSchool,
   onUpdateOrderStatus,
+  onUpdatePricingPlan,
+  onResetPricingPlans,
 }) => {
   // Authentication State for platform manager
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -59,9 +70,23 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [authError, setAuthError] = useState('');
 
   // Active Tab - default to orders for the platform owner
-  const [activeTab, setActiveTab] = useState<'orders' | 'schools' | 'stats' | 'php_package'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'schools' | 'pricing' | 'stats' | 'php_package'>('orders');
   const [selectedPhpFile, setSelectedPhpFile] = useState<'sql' | 'config' | 'whatsapp' | 'readme'>('sql');
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
+
+  // Pricing draft state & notification
+  const [pricingDrafts, setPricingDrafts] = useState<Record<string, {
+    price: string;
+    currency: string;
+    period: string;
+    name: string;
+    badge: string;
+    description: string;
+    ctaText: string;
+    isPopular: boolean;
+    featuresText: string;
+  }>>({});
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
 
   // Search & Filters
   const [schoolsSearch, setSchoolsSearch] = useState('');
@@ -159,6 +184,80 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       onAddSchool(schoolFormData);
     }
     setIsSchoolFormOpen(false);
+  };
+
+  // Pricing Plan Draft Helpers
+  const getDraft = (plan: PricingPlan) => {
+    return (
+      pricingDrafts[plan.id] || {
+        price: plan.price,
+        currency: plan.currency,
+        period: plan.period,
+        name: plan.name,
+        badge: plan.badge || '',
+        description: plan.description,
+        ctaText: plan.ctaText,
+        isPopular: !!plan.isPopular,
+        featuresText: plan.features.join('\n'),
+      }
+    );
+  };
+
+  const updateDraft = (
+    planId: string,
+    partial: Partial<{
+      price: string;
+      currency: string;
+      period: string;
+      name: string;
+      badge: string;
+      description: string;
+      ctaText: string;
+      isPopular: boolean;
+      featuresText: string;
+    }>
+  ) => {
+    const currentPlan = pricingPlans.find((p) => p.id === planId);
+    if (!currentPlan) return;
+    const current = getDraft(currentPlan);
+    setPricingDrafts((prev) => ({
+      ...prev,
+      [planId]: { ...current, ...partial },
+    }));
+  };
+
+  const handleSavePlan = (plan: PricingPlan) => {
+    const draft = getDraft(plan);
+    const updatedFeatures = draft.featuresText
+      .split('\n')
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0);
+
+    const updatedPlan: PricingPlan = {
+      ...plan,
+      price: draft.price.trim(),
+      currency: draft.currency.trim(),
+      period: draft.period.trim(),
+      name: draft.name.trim(),
+      badge: draft.badge.trim() || undefined,
+      description: draft.description.trim(),
+      ctaText: draft.ctaText.trim(),
+      isPopular: draft.isPopular,
+      features: updatedFeatures.length > 0 ? updatedFeatures : plan.features,
+    };
+
+    onUpdatePricingPlan(updatedPlan);
+    setSaveSuccessMessage(`تم بنجاح حفظ وتحديث "${draft.name}" بسعر ${draft.price} ${draft.currency}!`);
+    setTimeout(() => setSaveSuccessMessage(null), 3500);
+  };
+
+  const handleResetPrices = () => {
+    if (confirm('هل أنت متأكد من رغبتك في استعادة الأسعار الافتراضية (1200 درهم / 2200 درهم / 4000 درهم)؟')) {
+      setPricingDrafts({});
+      onResetPricingPlans();
+      setSaveSuccessMessage('تمت استعادة أثمنة الباقات الافتراضية بنجاح.');
+      setTimeout(() => setSaveSuccessMessage(null), 3500);
+    }
   };
 
   // Export orders to CSV
@@ -345,6 +444,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <span>إدارة المؤسسات الشريكة ({schools.length})</span>
                 </button>
                 <button
+                  onClick={() => setActiveTab('pricing')}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'pricing'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Tag className="w-3.5 h-3.5 text-amber-500" />
+                  <span>تعديل أثمنة العروض ({pricingPlans.length})</span>
+                </button>
+                <button
                   onClick={() => setActiveTab('stats')}
                   className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
                     activeTab === 'stats'
@@ -376,6 +486,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 >
                   <Plus className="w-4 h-4" />
                   <span>إضافة مؤسسة شريكة جديدة</span>
+                </button>
+              )}
+
+              {activeTab === 'pricing' && (
+                <button
+                  onClick={handleResetPrices}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  title="استعادة الأسعار الأصلية"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                  <span>استعادة الأسعار الأصلية</span>
                 </button>
               )}
 
@@ -651,6 +772,317 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     </table>
                   </div>
 
+                </div>
+              )}
+
+              {/* TAB: PRICING & OFFERS MANAGEMENT (تعديل أثمنة العروض) */}
+              {activeTab === 'pricing' && (
+                <div className="space-y-6">
+                  {/* Live Feedback Toast */}
+                  {saveSuccessMessage && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center justify-between shadow-xs">
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span>{saveSuccessMessage}</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100 px-2.5 py-1 rounded-lg">
+                        تم التحديث في واجهة الموقع ونموذج الطلب فوراً ✓
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Top Director Pricing Control Banner */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-xs text-amber-300 font-bold">
+                          لوحة التحكم في أسعار الاشتراكات والعروض التجارية
+                        </span>
+                      </div>
+                      <h4 className="text-xl sm:text-2xl font-black">
+                        تعديل أثمنة وباقات العروض المعتمدة للمؤسسات التعليمية
+                      </h4>
+                      <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                        يمكنك هنا تغيير السعر المالي لكل باقة، العملة المعتمدة، نصوص الفوترة، الشارات التسويقية (مثل الأكثر طلباً)، ونصوص أزرار الطلب. بمجرد النقر على "حفظ التعديلات"، يتم تحديث الأسعار فوراً على واجهة الموقع الرئيسية وفي نموذج الطلبات والرسائل الموجهة عبر واتساب.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch md:self-auto shrink-0">
+                      <button
+                        onClick={handleResetPrices}
+                        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-300" />
+                        <span>استعادة الأسعار الافتراضية (1200 / 2200 / 4000)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pricing Overview KPI Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {pricingPlans.map((plan) => {
+                      const draft = getDraft(plan);
+                      return (
+                        <div key={plan.id} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs relative overflow-hidden">
+                          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                            <span className="font-bold text-slate-900">{plan.name}</span>
+                            {draft.isPopular && (
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                                الأكثر اختياراً
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-baseline gap-2 mt-2">
+                            <span className="text-3xl font-black text-slate-900 font-mono tracking-tight">
+                              {draft.price}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700">{draft.currency}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block mt-1 truncate">{draft.period}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Individual Package Editor Cards */}
+                  <div className="space-y-6">
+                    {pricingPlans.map((plan, planIdx) => {
+                      const draft = getDraft(plan);
+
+                      // Preset price suggestions
+                      const pricePresets = 
+                        plan.id === 'php_standalone' ? ['1,000', '1,200', '1,500', '1,800'] :
+                        plan.id === 'hosting_domain' ? ['1,800', '2,000', '2,200', '2,500'] :
+                        ['3,500', '4,000', '4,500', '5,000'];
+
+                      return (
+                        <div
+                          key={plan.id}
+                          className={`rounded-3xl p-6 bg-white border-2 transition-all shadow-xs ${
+                            draft.isPopular
+                              ? 'border-emerald-600 ring-2 ring-emerald-500/10'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          {/* Card Title & Meta Header */}
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-5">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white ${
+                                planIdx === 0 ? 'bg-slate-800' : planIdx === 1 ? 'bg-emerald-600' : 'bg-teal-700'
+                              }`}>
+                                <Tag className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-base font-black text-slate-900">{draft.name}</h4>
+                                  <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                                    ID: {plan.id}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-slate-500">
+                                  السعر الحالي المعروض للزبائن: <strong className="text-emerald-800 font-mono">{draft.price} {draft.currency}</strong>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                                <input
+                                  type="checkbox"
+                                  checked={draft.isPopular}
+                                  onChange={(e) => updateDraft(plan.id, { isPopular: e.target.checked })}
+                                  className="w-4 h-4 text-emerald-600 rounded-sm focus:ring-emerald-500"
+                                />
+                                <span>تمييز كباقة مفضلة (أكثر طلباً)</span>
+                              </label>
+
+                              <button
+                                onClick={() => handleSavePlan(plan)}
+                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Save className="w-4 h-4" />
+                                <span>حفظ تعديلات الباقة</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Quick Price Presets Strip */}
+                          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 mb-5 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <Coins className="w-4 h-4 text-amber-500" />
+                              <span className="font-bold">أثمنة مقترحة وسريعة بنقرة واحدة:</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {pricePresets.map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => updateDraft(plan.id, { price: preset })}
+                                  className={`px-3 py-1 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer ${
+                                    draft.price === preset
+                                      ? 'bg-emerald-700 text-white shadow-xs'
+                                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                                  }`}
+                                >
+                                  {preset} {draft.currency}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Form Inputs Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            {/* Price */}
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                السعر (المبلغ المالي):
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={draft.price}
+                                onChange={(e) => updateDraft(plan.id, { price: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-mono font-black text-slate-900 text-sm"
+                                placeholder="مثال: 1,200 أو 2,200"
+                              />
+                            </div>
+
+                            {/* Currency */}
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                العملة:
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={draft.currency}
+                                onChange={(e) => updateDraft(plan.id, { currency: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-bold text-slate-800"
+                                placeholder="درهم / MAD / EUR / USD"
+                              />
+                            </div>
+
+                            {/* Badge */}
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                الشارة التسويقية (Badge):
+                              </label>
+                              <input
+                                type="text"
+                                value={draft.badge}
+                                onChange={(e) => updateDraft(plan.id, { badge: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                                placeholder="مثال: ترخيص دائم / الأكثر اختياراً"
+                              />
+                            </div>
+
+                            {/* Plan Name */}
+                            <div className="md:col-span-2">
+                              <label className="font-bold text-slate-700 block mb-1">
+                                اسم وعنوان الباقة:
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={draft.name}
+                                onChange={(e) => updateDraft(plan.id, { name: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-semibold"
+                              />
+                            </div>
+
+                            {/* Billing Period Text */}
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">
+                                نص دورة الفوترة:
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={draft.period}
+                                onChange={(e) => updateDraft(plan.id, { period: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                                placeholder="مثال: سنوياً شامل الدومين / تدفع لمرة واحدة"
+                              />
+                            </div>
+
+                            {/* CTA Button Label */}
+                            <div className="md:col-span-2">
+                              <label className="font-bold text-slate-700 block mb-1">
+                                نص زر الطلب (CTA):
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={draft.ctaText}
+                                onChange={(e) => updateDraft(plan.id, { ctaText: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
+                              />
+                            </div>
+
+                            {/* Quick Save Action In-line */}
+                            <div className="flex items-end">
+                              <button
+                                type="button"
+                                onClick={() => handleSavePlan(plan)}
+                                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Save className="w-4 h-4 text-emerald-400" />
+                                <span>تطبيق السعر ({draft.price} {draft.currency})</span>
+                              </button>
+                            </div>
+
+                            {/* Description */}
+                            <div className="md:col-span-3">
+                              <label className="font-bold text-slate-700 block mb-1">
+                                الوصف الترويجي للباقة:
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={draft.description}
+                                onChange={(e) => updateDraft(plan.id, { description: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 leading-relaxed"
+                              />
+                            </div>
+
+                            {/* Features list editor */}
+                            <div className="md:col-span-3">
+                              <label className="font-bold text-slate-700 block mb-1">
+                                مزايا الباقة (اكتب كل ميزة في سطر منفصل):
+                              </label>
+                              <textarea
+                                rows={4}
+                                value={draft.featuresText}
+                                onChange={(e) => updateDraft(plan.id, { featuresText: e.target.value })}
+                                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 leading-relaxed font-sans text-xs"
+                              />
+                              <span className="text-[11px] text-slate-400 mt-1 block">
+                                كل سطر يمثل نقطة ميزة بعلامة (✓) تظهر للمؤسسة في جدول الأسعار.
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Live Preview Box */}
+                          <div className="mt-5 p-4 rounded-2xl bg-[#FBFBFA] border border-slate-200">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                              معاينة حية لشكل بطاقة السعر في الموقع العام:
+                            </span>
+                            <div className="max-w-md p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+                              <div>
+                                <span className="text-xs font-bold text-slate-900 block">{draft.name}</span>
+                                <span className="text-[11px] text-slate-500">{draft.period}</span>
+                              </div>
+                              <div className="text-left font-mono">
+                                <span className="text-2xl font-black text-emerald-800">{draft.price}</span>
+                                <span className="text-xs font-bold text-slate-700 mr-1">{draft.currency}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

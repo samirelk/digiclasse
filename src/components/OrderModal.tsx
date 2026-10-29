@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PurchaseOrder } from '../types';
+import { PurchaseOrder, PricingPlan } from '../types';
 import { 
   X, 
   Sparkles, 
@@ -20,6 +20,7 @@ interface OrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedPackageId?: 'php_standalone' | 'hosting_domain' | 'custom_training';
+  plans?: PricingPlan[];
   onSubmitOrder: (order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'status'>) => PurchaseOrder;
 }
 
@@ -27,6 +28,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   isOpen,
   onClose,
   selectedPackageId = 'hosting_domain',
+  plans,
   onSubmitOrder,
 }) => {
   const [formData, setFormData] = useState({
@@ -97,9 +99,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     e.preventDefault();
     if (!validate()) return;
 
-    let totalAmount = '2,200 درهم';
-    if (formData.selectedPackage === 'php_standalone') totalAmount = '1,200 درهم';
-    if (formData.selectedPackage === 'custom_training') totalAmount = '4,000 درهم';
+    const matchedPlan = plans?.find((p) => p.id === formData.selectedPackage);
+    let totalAmount = matchedPlan
+      ? `${matchedPlan.price} ${matchedPlan.currency}`
+      : (formData.selectedPackage === 'php_standalone'
+          ? '1,200 درهم'
+          : formData.selectedPackage === 'custom_training'
+          ? '4,000 درهم'
+          : '2,200 درهم');
 
     const finalDomain =
       domainType === 'subdomain'
@@ -126,17 +133,20 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   // WhatsApp click generator
   const getWhatsAppLink = () => {
     if (!submittedOrder) return '#';
+    const matchedPlan = plans?.find((p) => p.id === submittedOrder.selectedPackage);
+    const packageDesc = matchedPlan
+      ? `${matchedPlan.name} (${matchedPlan.price} ${matchedPlan.currency})`
+      : (submittedOrder.selectedPackage === 'hosting_domain'
+          ? 'باقة الاستضافة والدومين الفرعي الخاص (2200 درهم)'
+          : submittedOrder.selectedPackage === 'php_standalone'
+          ? 'باقة الحزمة المستقلة Self-Host (1200 درهم)'
+          : 'باقة الدعم والتدريب والتخصيص الشامل (4000 درهم)');
+
     const message = `السلام عليكم ورحمة الله،
 أنا: ${submittedOrder.contactPerson} (${submittedOrder.roleTitle})
 من مؤسسة: ${submittedOrder.schoolName} - ${submittedOrder.city}
 رقم الطلب: ${submittedOrder.orderNumber}
-الباقة المختارة: ${
-      submittedOrder.selectedPackage === 'hosting_domain'
-        ? 'باقة الاستضافة والدومين الفرعي الخاص (2200 درهم)'
-        : submittedOrder.selectedPackage === 'php_standalone'
-        ? 'باقة الحزمة المستقلة Self-Host (1200 درهم)'
-        : 'باقة الدعم والتدريب والتخصيص الشامل (4000 درهم)'
-    }
+الباقة المختارة: ${packageDesc}
 الموقع الفرعي المطلوب: ${submittedOrder.requestedDomain}
 أود تأكيد طلبنا ومتابعة إجراءات التثبيت والتسليم. شكراً لكم.`;
 
@@ -250,11 +260,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   اختر باقة الاشتراك المطلوبة:
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { id: 'hosting_domain', name: 'باقة الاستضافة والدومين الفرعي الخاص', price: '2,200 درهم/سنة', popular: true },
-                    { id: 'php_standalone', name: 'باقة الحزمة المستقلة (Self-Host)', price: '1,200 درهم (دائم)', popular: false },
-                    { id: 'custom_training', name: 'باقة الدعم والتدريب والتخصيص الشامل', price: '4,000 درهم/سنة', popular: false },
-                  ].map((pkg) => (
+                  {(plans && plans.length > 0 ? plans : [
+                    { id: 'hosting_domain', name: 'باقة الاستضافة والدومين الفرعي الخاص', price: '2,200', currency: 'درهم', period: 'سنوياً', isPopular: true },
+                    { id: 'php_standalone', name: 'باقة الحزمة المستقلة (Self-Host)', price: '1,200', currency: 'درهم', period: 'دائم', isPopular: false },
+                    { id: 'custom_training', name: 'باقة الدعم والتدريب والتخصيص الشامل', price: '4,000', currency: 'درهم', period: 'سنوياً', isPopular: false },
+                  ]).map((pkg) => (
                     <label
                       key={pkg.id}
                       className={`relative flex flex-col p-3 rounded-xl border text-right cursor-pointer transition-all ${
@@ -273,7 +283,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       />
                       <span className="text-xs font-bold text-slate-900">{pkg.name}</span>
                       <span className="text-[11px] font-mono text-emerald-700 font-semibold mt-1">
-                        {pkg.price}
+                        {pkg.price} {pkg.currency || 'درهم'}
                       </span>
                     </label>
                   ))}
