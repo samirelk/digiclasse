@@ -1,6 +1,11 @@
-import { PartnerSchool, PricingPlan, PurchaseOrder, DemoStudent } from '../types';
+import { PartnerSchool, PricingPlan, PurchaseOrder, DemoStudent, StatsSettings } from '../types';
 
 export const INITIAL_PARTNER_SCHOOLS: PartnerSchool[] = [];
+
+export const INITIAL_STATS_SETTINGS: StatsSettings = {
+  isEnabled: false, // Default is disabled/hidden as requested by user
+  items: [],
+};
 
 
 export const INITIAL_PRICING_PLANS: PricingPlan[] = [

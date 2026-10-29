@@ -16,8 +16,9 @@ import {
   INITIAL_PRICING_PLANS,
   INITIAL_PURCHASE_ORDERS,
   INITIAL_DEMO_STUDENTS,
+  INITIAL_STATS_SETTINGS,
 } from './data/initialData';
-import { PartnerSchool, PurchaseOrder, OrderStatus, PricingPlan } from './types';
+import { PartnerSchool, PurchaseOrder, OrderStatus, PricingPlan, StatsSettings } from './types';
 import { MessageSquare, Sparkles, Shield, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
   const SCHOOLS_STORAGE_KEY = 'ecole_smart_partner_schools_v4';
   const ORDERS_STORAGE_KEY = 'ecole_smart_purchase_orders_v3';
   const PRICING_STORAGE_KEY = 'ecole_smart_pricing_plans_v2';
+  const STATS_STORAGE_KEY = 'ecole_smart_stats_settings_v2';
 
   // State: Partner Schools
   const [partnerSchools, setPartnerSchools] = useState<PartnerSchool[]>(() => {
@@ -59,6 +61,17 @@ export default function App() {
     return INITIAL_PRICING_PLANS;
   });
 
+  // State: Custom Stats Settings (disabled by default so no exaggerated numbers appear)
+  const [statsSettings, setStatsSettings] = useState<StatsSettings>(() => {
+    try {
+      const saved = localStorage.getItem(STATS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading saved stats settings:', e);
+    }
+    return INITIAL_STATS_SETTINGS;
+  });
+
   // Persist to local storage
   useEffect(() => {
     try {
@@ -83,6 +96,14 @@ export default function App() {
       console.error('Failed to save pricing plans:', e);
     }
   }, [pricingPlans]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(statsSettings));
+    } catch (e) {
+      console.error('Failed to save stats settings:', e);
+    }
+  }, [statsSettings]);
 
   // Modal visibility states
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -171,8 +192,8 @@ export default function App() {
           onOpenDemo={() => setIsDemoModalOpen(true)}
         />
 
-        {/* 3. Stats Counter Strip */}
-        <StatsCounter />
+        {/* 3. Stats Counter Strip (dynamically managed by admin, hidden when empty or disabled) */}
+        <StatsCounter settings={statsSettings} />
 
         {/* 4. Features Bento Showcase */}
         <FeaturesSection
@@ -286,6 +307,8 @@ export default function App() {
         schools={partnerSchools}
         orders={purchaseOrders}
         pricingPlans={pricingPlans}
+        statsSettings={statsSettings}
+        onUpdateStatsSettings={setStatsSettings}
         onAddSchool={handleAddSchool}
         onUpdateSchool={handleUpdateSchool}
         onDeleteSchool={handleDeleteSchool}

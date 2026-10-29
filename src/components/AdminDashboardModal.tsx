@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PartnerSchool, PurchaseOrder, OrderStatus, EducationLevel, SchoolStatus, PricingPlan } from '../types';
+import { PartnerSchool, PurchaseOrder, OrderStatus, EducationLevel, SchoolStatus, PricingPlan, StatsSettings, PublicStatItem } from '../types';
 import { 
   X, 
   ShieldCheck, 
@@ -33,7 +33,11 @@ import {
   Coins,
   RotateCcw,
   Save,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  EyeOff,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 
 interface AdminDashboardModalProps {
@@ -42,6 +46,8 @@ interface AdminDashboardModalProps {
   schools: PartnerSchool[];
   orders: PurchaseOrder[];
   pricingPlans: PricingPlan[];
+  statsSettings: StatsSettings;
+  onUpdateStatsSettings: (settings: StatsSettings | ((prev: StatsSettings) => StatsSettings)) => void;
   onAddSchool: (school: Omit<PartnerSchool, 'id'>) => void;
   onUpdateSchool: (school: PartnerSchool) => void;
   onDeleteSchool: (schoolId: string) => void;
@@ -56,6 +62,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   schools,
   orders,
   pricingPlans,
+  statsSettings,
+  onUpdateStatsSettings,
   onAddSchool,
   onUpdateSchool,
   onDeleteSchool,
@@ -113,6 +121,90 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
   // Selected Order Detail Modal
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
+
+  // Custom Public Stats Management State
+  const [isStatFormOpen, setIsStatFormOpen] = useState(false);
+  const [editingStatId, setEditingStatId] = useState<string | null>(null);
+  const [statFormData, setStatFormData] = useState({
+    value: '',
+    label: '',
+    sublabel: '',
+  });
+  const [statFeedbackMsg, setStatFeedbackMsg] = useState<string | null>(null);
+
+  const handleToggleStatsVisibility = () => {
+    const nextState = !statsSettings.isEnabled;
+    const updated = {
+      ...statsSettings,
+      isEnabled: nextState,
+    };
+    onUpdateStatsSettings(updated);
+    setStatFeedbackMsg(
+      nextState
+        ? 'تم تفعيل وإظهار شريط الإحصائيات في الصفحة الرئيسية بنجاح.'
+        : 'تم إخفاء شريط الإحصائيات من الصفحة الرئيسية بنجاح.'
+    );
+    setTimeout(() => setStatFeedbackMsg(null), 3500);
+  };
+
+  const handleOpenAddStat = () => {
+    setEditingStatId(null);
+    setStatFormData({ value: '', label: '', sublabel: '' });
+    setIsStatFormOpen(true);
+  };
+
+  const handleOpenEditStat = (stat: PublicStatItem) => {
+    setEditingStatId(stat.id);
+    setStatFormData({
+      value: stat.value,
+      label: stat.label,
+      sublabel: stat.sublabel || '',
+    });
+    setIsStatFormOpen(true);
+  };
+
+  const handleSaveStat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statFormData.value.trim() || !statFormData.label.trim()) return;
+
+    if (editingStatId) {
+      const updatedItems = statsSettings.items.map((item) =>
+        item.id === editingStatId
+          ? {
+              ...item,
+              value: statFormData.value.trim(),
+              label: statFormData.label.trim(),
+              sublabel: statFormData.sublabel.trim() || undefined,
+            }
+          : item
+      );
+      onUpdateStatsSettings({ ...statsSettings, items: updatedItems });
+      setStatFeedbackMsg('تم تحديث الإحصائية بنجاح.');
+    } else {
+      const newItem: PublicStatItem = {
+        id: `stat-${Date.now()}`,
+        value: statFormData.value.trim(),
+        label: statFormData.label.trim(),
+        sublabel: statFormData.sublabel.trim() || undefined,
+      };
+      onUpdateStatsSettings({
+        ...statsSettings,
+        items: [...statsSettings.items, newItem],
+      });
+      setStatFeedbackMsg('تمت إضافة الإحصائية بنجاح.');
+    }
+    setIsStatFormOpen(false);
+    setTimeout(() => setStatFeedbackMsg(null), 3500);
+  };
+
+  const handleDeleteStat = (statId: string) => {
+    if (confirm('هل أنت متأكد من حذف هذه الإحصائية؟')) {
+      const updatedItems = statsSettings.items.filter((item) => item.id !== statId);
+      onUpdateStatsSettings({ ...statsSettings, items: updatedItems });
+      setStatFeedbackMsg('تم حذف الإحصائية.');
+      setTimeout(() => setStatFeedbackMsg(null), 3000);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -486,6 +578,16 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 >
                   <Plus className="w-4 h-4" />
                   <span>إضافة مؤسسة شريكة جديدة</span>
+                </button>
+              )}
+
+              {activeTab === 'stats' && (
+                <button
+                  onClick={handleOpenAddStat}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة إحصائية مخصصة جديدة</span>
                 </button>
               )}
 
@@ -1086,87 +1188,289 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </div>
               )}
 
-              {/* TAB 3: PLATFORM BUSINESS & PERFORMANCE STATISTICS */}
+              {/* TAB 3: PLATFORM REAL DATA & PUBLIC STATS CUSTOMIZER */}
               {activeTab === 'stats' && (
                 <div className="space-y-6">
                   
-                  {/* Top Director Overview Banner */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
-                    <div className="space-y-1">
+                  {/* Feedback Message */}
+                  {statFeedbackMsg && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center justify-between text-emerald-900 text-xs font-bold animate-fadeIn">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-xs text-emerald-400 font-bold">
-                          بوابة إدارة منصة مدرستي الذكية (digiclasse.com)
-                        </span>
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span>{statFeedbackMsg}</span>
                       </div>
-                      <h4 className="text-xl sm:text-2xl font-black">
-                        لوحة مؤشرات الأداء والاشتراكات والمؤسسات الشريكة
-                      </h4>
-                      <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-                        متابعة حية لكافة طلبات الشراء، حالة الدومينات الفرعية، وتدفق رسائل WhatsApp Cloud API الموجهة لأولياء الأمور عبر مختلف المدارس.
-                      </p>
+                      <button
+                        onClick={() => setStatFeedbackMsg(null)}
+                        className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 1. Public Stats Visibility & Management Control */}
+                  <div className="p-6 rounded-2xl bg-white border-2 border-slate-200 shadow-xs text-right">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <BarChart3 className="w-5 h-5 text-emerald-600" />
+                          <h4 className="text-base font-black text-slate-900">
+                            إدارة إحصائيات الصفحة الرئيسية للزوار
+                          </h4>
+                          <span
+                            className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                              statsSettings.isEnabled
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {statsSettings.isEnabled
+                              ? 'ظاهر في الصفحة الرئيسية'
+                              : 'مخفي ومزال حالياً من الموقع'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+                          تمت إزالة الأرقام القديمة المبالغ فيها بالكامل من الموقع العام بناءً على طلبك. يمكنك هنا كتابة أرقام وإحصائيات حقيقية وواقعية خاصة بك، والتحكم في إظهارها أو إخفائها بضغطة زر واحدة.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleToggleStatsVisibility}
+                          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
+                            statsSettings.isEnabled
+                              ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          }`}
+                        >
+                          {statsSettings.isEnabled ? (
+                            <>
+                              <EyeOff className="w-4 h-4" />
+                              <span>إخفاء شريط الإحصائيات من الموقع</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4" />
+                              <span>تفعيل وإظهار الإحصائيات في الموقع</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenAddStat}
+                          className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>إضافة إحصائية مخصصة</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch md:self-auto shrink-0">
-                      <button
-                        onClick={openAddSchool}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>إضافة مؤسسة جديدة</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('orders')}
-                        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-white/15"
-                      >
-                        <MessageSquare className="w-4 h-4 text-emerald-400" />
-                        <span>معالجة الطلبات ({orders.filter(o => o.status === 'new').length} جديدة)</span>
-                      </button>
+                    {/* Stat Add/Edit Inline Form */}
+                    {isStatFormOpen && (
+                      <form onSubmit={handleSaveStat} className="mt-5 p-5 bg-[#FBFBFA] rounded-2xl border border-slate-200 animate-fadeIn">
+                        <div className="flex items-center justify-between mb-4">
+                          <h5 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-600" />
+                            <span>{editingStatId ? 'تعديل الإحصائية المحددة' : 'إضافة إحصائية جديدة للموقع العام'}</span>
+                          </h5>
+                          <button
+                            type="button"
+                            onClick={() => setIsStatFormOpen(false)}
+                            className="text-slate-400 hover:text-slate-600 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs mb-4">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              القيمة أو الرقم: <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={statFormData.value}
+                              onChange={(e) => setStatFormData({ ...statFormData, value: e.target.value })}
+                              placeholder="مثال: 5+ أو 100% أو 12"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-mono font-bold"
+                            />
+                            <span className="text-[10px] text-slate-400 mt-1 block">رقم حقيقي ومؤكد بدون مبالغة</span>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              العنوان الرئيسي: <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={statFormData.label}
+                              onChange={(e) => setStatFormData({ ...statFormData, label: e.target.value })}
+                              placeholder="مثال: مؤسسة تعليمية معتمدة"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              الوصف التوضيحي (اختياري):
+                            </label>
+                            <input
+                              type="text"
+                              value={statFormData.sublabel}
+                              onChange={(e) => setStatFormData({ ...statFormData, sublabel: e.target.value })}
+                              placeholder="مثال: بالناضور ومختلف المديريات"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="submit"
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>{editingStatId ? 'حفظ التعديل' : 'إضافة إلى الإحصائيات'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsStatFormOpen(false)}
+                            className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all cursor-pointer"
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Stats Cards Display List */}
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-slate-700">
+                          الإحصائيات المخصصة المعرفة لديك ({statsSettings.items.length}):
+                        </span>
+                        {!statsSettings.isEnabled && (
+                          <span className="text-[11px] text-amber-700 font-medium">
+                            (ملاحظة: هذا الشريط مغلق حالياً ولن يشاهده زوار الموقع إلا إذا قمت بتفعيله أعلاه)
+                          </span>
+                        )}
+                      </div>
+
+                      {statsSettings.items.length === 0 ? (
+                        <div className="p-8 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                          <BarChart3 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                          <h6 className="text-xs font-bold text-slate-800 mb-1">
+                            لا توجد إحصائيات معروضة حالياً
+                          </h6>
+                          <p className="text-xs text-slate-500 max-w-md mx-auto mb-3">
+                            تمت إزالة الأرقام المبالغ فيها بالكامل. الموقع حالياً نظيف وخالٍ من أي أرقام غير مؤكدة. يمكنك إضافة أرقامك الواقعية وقتما تشاء.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleOpenAddStat}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>إضافة إحصائية حقيقية الآن</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {statsSettings.items.map((stat) => (
+                            <div
+                              key={stat.id}
+                              className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-all text-right"
+                            >
+                              <div>
+                                <div className="text-2xl font-black text-slate-900 font-mono mb-1">
+                                  {stat.value}
+                                </div>
+                                <div className="text-xs font-bold text-slate-800 mb-0.5">
+                                  {stat.label}
+                                </div>
+                                {stat.sublabel && (
+                                  <div className="text-[11px] text-slate-500">
+                                    {stat.sublabel}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditStat(stat)}
+                                  className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                                  title="تعديل"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStat(stat.id)}
+                                  className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Platform High-Level KPIs */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-                      <span className="text-xs text-slate-500 font-medium block">إجمالي طلبات الشراء الواردة:</span>
-                      <div className="text-3xl font-black text-slate-900 font-mono mt-1.5">{orders.length}</div>
-                      <div className="flex items-center gap-2 mt-2 text-[11px]">
-                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                          {orders.filter(o => o.status === 'new').length} جديدة
-                        </span>
-                        <span className="text-slate-400">تحتاج تأكيد</span>
+                  {/* 2. Platform Real Operational Indicators (Truthful, Clean Data) */}
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
+                      مؤشرات التشغيل الفعلية للمنظومة (بيانات حقيقية 100%):
+                    </h5>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                        <span className="text-xs text-slate-500 font-medium block">طلبات الشراء والاشتراكات الواردة:</span>
+                        <div className="text-3xl font-black text-slate-900 font-mono mt-1.5">{orders.length}</div>
+                        <div className="flex items-center gap-2 mt-2 text-[11px]">
+                          <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+                            {orders.filter(o => o.status === 'new').length} جديدة
+                          </span>
+                          <span className="text-slate-400">تحتاج متابعة</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-                      <span className="text-xs text-slate-500 font-medium block">المؤسسات الشريكة المفعلة:</span>
-                      <div className="text-3xl font-black text-emerald-700 font-mono mt-1.5">{schools.length}</div>
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500">
-                        <span>{schools.filter(s => s.status === 'نشط').length} نطاقاً نشطاً على</span>
-                        <span className="font-mono text-emerald-800 font-bold">.digiclasse.com</span>
+                      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                        <span className="text-xs text-slate-500 font-medium block">المؤسسات الشريكة المضافة:</span>
+                        <div className="text-3xl font-black text-emerald-700 font-mono mt-1.5">{schools.length}</div>
+                        <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500">
+                          <span>{schools.length === 0 ? 'في انتظار الإضافة اليدوية' : `${schools.length} مؤسسة مسجلة`}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-                      <span className="text-xs text-slate-500 font-medium block">إجمالي رسائل واتساب المرسلة:</span>
-                      <div className="text-3xl font-black text-teal-700 font-mono mt-1.5">480,240+</div>
-                      <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-700 font-bold">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>نسبة تسليم وقراءة 99.4%</span>
+                      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                        <span className="text-xs text-slate-500 font-medium block">باقات العروض والأسعار المفعلة:</span>
+                        <div className="text-3xl font-black text-teal-700 font-mono mt-1.5">{pricingPlans.length}</div>
+                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-700 font-bold">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>1200 / 2200 / 4000 درهم</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-                      <span className="text-xs text-slate-500 font-medium block">حالة WhatsApp Cloud API:</span>
-                      <div className="text-2xl font-bold text-emerald-800 mt-2 flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block animate-ping" />
-                        <span>متصل ويعمل</span>
+                      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                        <span className="text-xs text-slate-500 font-medium block">حالة نظام WhatsApp Cloud API:</span>
+                        <div className="text-xl font-bold text-emerald-800 mt-2 flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-ping" />
+                          <span>جاهز للربط الرسمي</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400 mt-1 block">Meta Developers Cloud API</span>
                       </div>
-                      <span className="text-[11px] text-slate-400 mt-1 block">خوادم ميتا السحابية الرسمية</span>
                     </div>
                   </div>
 
-                  {/* Official Platform Contact & Direct Channels Card */}
+                  {/* 3. Official Platform Contact & Direct Channels Card */}
                   <div className="p-5 rounded-2xl bg-[#FBFBFA] border border-slate-200/90">
                     <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
                       بيانات التواصل والطلبات المباشرة الرسمية المعتمدة للمنصة:
@@ -1213,51 +1517,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           <span className="text-xs font-bold text-slate-900">الناضور - المملكة المغربية</span>
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Live Simulation Monitor of System Operations in Partner Schools */}
-                  <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-                    <div className="p-4 bg-slate-100/80 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold text-slate-900 block">
-                          محاكاة الأقسام النشطة في المدارس الشريكة (متابعة الحراسة العامة)
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          نظام المراقبة اللحظية للغياب ورصد المقاعد المحدث عبر خوادم digiclasse.com
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-emerald-800 font-bold bg-emerald-100 px-2.5 py-1 rounded-lg">
-                        تحديث مباشر ✓
-                      </span>
-                    </div>
-
-                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#FAFAF9]">
-                      {[
-                        { room: 'قاعة 01', class: 'الأولى باك علوم 1', school: 'ثانوية المسيرة', teacher: 'ذ. بناني', subject: 'الرياضيات', present: 32, absent: 1, status: 'نشطة' },
-                        { room: 'قاعة 04', class: 'الثالثة إعدادي 2', school: 'إعدادية ابن بطوطة', teacher: 'ذ. التازي', subject: 'الفيزياء', present: 28, absent: 2, status: 'نشطة' },
-                        { room: 'قاعة 07', class: 'الجذع المشترك علمي', school: 'مجموعة مدارس النخبة', teacher: 'ذة. الإدريسي', subject: 'علوم الحياة', present: 30, absent: 0, status: 'حضور تام' },
-                        { room: 'قاعة 10', class: 'الثانية باك آداب', school: 'ثانوية الريف التأهيلية', teacher: 'ذ. العمراني', subject: 'الفلسفة', present: 27, absent: 3, status: 'نشطة' },
-                        { room: 'قاعة 12', class: 'الثانية إعدادي 4', school: 'مؤسسة الفتح الخاصة', teacher: 'ذة. بنجلون', subject: 'اللغة الفرنسية', present: 31, absent: 1, status: 'نشطة' },
-                        { room: 'مختبر 2', class: 'الأولى باك دولي', school: 'ثانوية ابن الهيثم', teacher: 'ذ. الصديقي', subject: 'الكيمياء', present: 29, absent: 0, status: 'حضور تام' },
-                      ].map((c, i) => (
-                        <div key={i} className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between shadow-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-900">{c.room} · {c.class}</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                              {c.status}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-emerald-700 font-medium mb-1">{c.school}</span>
-                          <div className="text-[11px] text-slate-500 mb-2">
-                            {c.subject} · {c.teacher}
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 font-mono">
-                            <span className="text-emerald-700 font-bold">حاضرون: {c.present}</span>
-                            <span className="text-rose-600 font-bold">غياب: {c.absent}</span>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </div>
 

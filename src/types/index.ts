@@ -87,3 +87,15 @@ export interface WhatsAppNotification {
   status: 'sent' | 'delivered' | 'read';
   message: string;
 }
+
+export interface PublicStatItem {
+  id: string;
+  value: string;
+  label: string;
+  sublabel?: string;
+}
+
+export interface StatsSettings {
+  isEnabled: boolean;
+  items: PublicStatItem[];
+}
